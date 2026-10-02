@@ -14,6 +14,8 @@ import shutil
 import subprocess
 import tempfile
 
+from offscreen_window import offscreen_window
+
 root = Path(__file__).resolve().parents[1]
 
 with tempfile.TemporaryDirectory(prefix="keystroke-palette-currency-") as temp:
@@ -23,9 +25,7 @@ with tempfile.TemporaryDirectory(prefix="keystroke-palette-currency-") as temp:
     (work / "qs").symlink_to("/usr/share/omarchy/shell")
     source = project / "Keystroke.qml"
     qml = source.read_text()
-    qml = qml.replace("  PanelWindow {", "  Window {\n    transientParent: null\n    width: 1000; height: 800")
-    qml = qml.replace("    anchors { top: true; bottom: true; left: true; right: true }\n", "")
-    source.write_text("\n".join(line for line in qml.splitlines() if "exclusionMode:" not in line and "WlrLayershell." not in line))
+    source.write_text(offscreen_window(qml))
 
     (work / ".config/omarchy").mkdir(parents=True)
     (work / ".config/omarchy/keystroke.json").write_text(json.dumps({"version": 1, "matching": {"mode": "off"}, "providers": {"currency": {"enabled": True, "preferredCurrency": "EUR"}}}))

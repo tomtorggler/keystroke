@@ -11,7 +11,11 @@ from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
+from offscreen_window import offscreen_window
 
 here = Path(__file__).resolve().parents[1]
 checkout = Path(__file__).resolve().parents[3]
@@ -23,9 +27,8 @@ with tempfile.TemporaryDirectory(prefix="keystroke-projects-") as temp:
     shutil.copytree(root, project, ignore=shutil.ignore_patterns(".git", ".claude", ".agents", ".codex", "tests", "__pycache__", "experiments"))
     (work / "qs").symlink_to("/usr/share/omarchy/shell")
     source = project / "Keystroke.qml"
-    qml = source.read_text().replace("  PanelWindow {", "  Window {\n    transientParent: null\n    width: 1000; height: 800")
-    qml = qml.replace("    anchors { top: true; bottom: true; left: true; right: true }\n", "")
-    source.write_text("\n".join(line for line in qml.splitlines() if "exclusionMode:" not in line and "WlrLayershell." not in line))
+    qml = source.read_text()
+    source.write_text(offscreen_window(qml))
     shutil.copytree(here, work / ".local/share/keystroke/extensions/recent-projects", ignore=shutil.ignore_patterns("__pycache__"))
     config = work / ".config"
     (config / "omarchy").mkdir(parents=True)

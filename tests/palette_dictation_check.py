@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import tempfile
 
+from offscreen_window import offscreen_window
+
 root = Path(__file__).resolve().parents[1]
 # The hotkey's second tap reaches the palette as the shell's hide(): it calls
 # close() and then drops the plugin from its open set, and the panel Loader
@@ -27,9 +29,8 @@ with tempfile.TemporaryDirectory(prefix='keystroke-palette-') as temp:
   property alias testTransfer: clipboardTransfer
   property alias testCard: card
   property alias testPanel: panel
-''',1).replace('  PanelWindow {','  Window {\n    transientParent: null\n    width: 1000; height: 800')
-    s=s.replace('    anchors { top: true; bottom: true; left: true; right: true }\n','')
-    s='\n'.join(line for line in s.splitlines() if 'exclusionMode:' not in line and 'WlrLayershell.' not in line)
+''',1)
+    s=offscreen_window(s)
     p.write_text(s)
     (project/'voice/VoiceSession.qml').write_text('''import QtQuick
 Item {

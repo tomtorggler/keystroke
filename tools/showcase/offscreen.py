@@ -34,6 +34,9 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tests"))
+from offscreen_window import offscreen_window
+
 OUT = ROOT / "site/assets/screenshots"
 WANTED = set(sys.argv[1:])
 
@@ -181,11 +184,9 @@ def patch_settings_path(project, home):
 
 def patch_palette(source):
     qml = source.read_text()
-    qml = qml.replace("  PanelWindow {", "  Window {\n    transientParent: null\n    width: 1000; height: 800")
-    qml = qml.replace("    anchors { top: true; bottom: true; left: true; right: true }\n", "")
     qml = qml.replace("  function inspect() {", "  readonly property var showcaseCard: card\n  function inspect() {", 1)
     assert "showcaseCard" in qml, "inspect() anchor not found"
-    source.write_text("\n".join(line for line in qml.splitlines() if "exclusionMode:" not in line and "WlrLayershell." not in line))
+    source.write_text(offscreen_window(qml))
 
 
 def script(folder, name, body):

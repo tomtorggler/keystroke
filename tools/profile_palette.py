@@ -12,6 +12,8 @@ Usage: tools/profile_palette.py [checkout] [label]
 """
 import json, os, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
+from offscreen_window import offscreen_window
 root = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]).resolve()
 label = sys.argv[2] if len(sys.argv) > 2 else 'run'
 queries = ["o","op","ope","open","open ","open t","open th","open the","open the ","open the b","open the br","open the bro","open the brow","open the brows","open the browse","open the browser",
@@ -38,9 +40,7 @@ with tempfile.TemporaryDirectory(prefix='keystroke-prof-') as temp:
     qml = qml.replace('        if (typeof entry.provider.catalog === "function") candidates = entry.provider.catalog(ctx) || []\n', '        var __c = Date.now(); if (typeof entry.provider.catalog === "function") { candidates = entry.provider.catalog(ctx) || []; root.catalogMs[entry.key] = (root.catalogMs[entry.key] || 0) + (Date.now() - __c) }\n')
     assert 'root.catalogMs[entry.key]' in qml
     qml = qml.replace('  property var marks: []\n', '  property var marks: []\n  property var providerMs: ({})\n  property var providerCalls: ({})\n  property var catalogMs: ({})\n')
-    qml = qml.replace('  PanelWindow {','  Window {\n    transientParent: null\n    width: 1000; height: 800')
-    qml = qml.replace('    anchors { top: true; bottom: true; left: true; right: true }\n','')
-    src.write_text('\n'.join(l for l in qml.splitlines() if 'exclusionMode:' not in l and 'WlrLayershell.' not in l))
+    src.write_text(offscreen_window(qml, strict=False))   # the checkout may predate some layer-only lines
     (work/'shell.qml').write_text('''import QtQuick
 import Quickshell
 import "project"

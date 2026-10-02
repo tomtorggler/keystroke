@@ -4,6 +4,7 @@
     "density": "compact",
     "accent": "theme",
     "showPreview": true,
+    "fullscreenBackground": true,
     "animations": "snappy",
     "windowTransition": "instant"
   },

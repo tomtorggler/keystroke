@@ -1,5 +1,30 @@
 > Historical checkpoints below include retired local-model and forked-Voxtype implementations. Current build: [Codex integration verification](codex-integration-verification.md).
 
+## Optional full-screen background (2026-10-02)
+
+- Added `palette.fullscreenBackground` (default true, so existing configs keep
+  the full-screen scrim). Off, the same layer-shell window is inset to the card,
+  with no scrim and no outside-click surface; the input region is the card, so
+  reserved picker and slide space passes clicks through. The card's display
+  position is one formula from its own height in both modes; the setting only
+  chooses the window rectangle. A picker's surface is sized once for its tallest
+  state and filtering moves the card inside it. The screen is pinned at open to
+  Hyprland's focused monitor.
+- The offscreen PanelWindow swap moved to `tests/offscreen_window.py`, shared by
+  every palette harness, the showcase and the profiler; each replacement must
+  match once. `tests/palette_window_check.py` covers both layouts, live setting
+  changes, odd and small displays and the card landing on the same display
+  position in both modes, and the input mask.
+- `bin/keystroke test`: 270 QML tests passed and every check through
+  `matching_worker_check` passed; `matching_engine_check` stopped because
+  `cargo` is not installed here (nothing under `matching/` changed). The checks
+  after it ran one by one and passed, as did `tools/check_extensions.py`
+  (eight extensions), `tests/lint.sh` (exit 0) and `omarchy plugin validate`.
+- Tried in the running shell on a two-monitor Hyprland machine, the one where
+  GPU memory ran out under the full-screen surface.
+- Not exercised: mixed-resolution monitors, and the slide transition against a
+  real compositor.
+
 ## Graphics-loss recovery (2026-10-02)
 
 - A compositor close or a lost graphics resource on the palette's layer surface

@@ -138,6 +138,8 @@ Type or speak, then select **Ask Codex here**, or type `? ` before your question
 
 One file, hand-editable and hot-reloaded: `~/.config/omarchy/keystroke.json` (see [keystroke.example.json](keystroke.example.json)). Settings screens are generated from each provider's schema; writes are atomic, preserve unknown fields, and are refused while the file fails to parse. Every screen, setting and choice is searchable from the palette root through its breadcrumb. **Learn Keystroke** on the Settings screen opens the usage guide in your browser. Appearance: density (compact/comfortable), accent (theme accent or ember/violet/mint), previews on/off, animations (off, snappy or fluid) and the window transition (instant, fade or slide up). Colors, fonts, radius and spacing follow the active Omarchy theme.
 
+Turn off **Settings → Appearance → Full-screen background** (`palette.fullscreenBackground: false`) for a launcher-sized window with no desktop dimming or outside-click overlay. It opens on the focused monitor and keeps the keyboard until you press **Esc**; clicks outside the card reach the windows below. A picker's window keeps its tallest size while you filter it, so typing never resizes the surface. This reduces the surface area allocated on the GPU, especially on high-resolution displays; it does not change the rendering backend. The default remains full-screen. Graphics-resource failures close the palette immediately, cancel pending pickers, and report an error so the next shortcut can try again.
+
 ## Verify
 
 ```sh

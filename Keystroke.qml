@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
@@ -118,6 +119,8 @@ Item {
     { key: "density", type: "enum", label: "Layout density", "default": "compact", options: ["compact", "comfortable"], description: "Compact uses a narrower window and shorter rows" },
     { key: "accent", type: "enum", label: "Accent color", "default": "theme", options: ["theme", "ember", "violet", "mint"], description: "Theme follows the active Omarchy theme" },
     { key: "showPreview", type: "boolean", label: "Show result previews", "default": true },
+    { key: "fullscreenBackground", type: "boolean", label: "Full-screen background", "default": true,
+      description: "Dim the desktop and click outside to close. Off uses a launcher-sized window that keeps the keyboard until you press Escape" },
     { key: "animations", type: "enum", label: "Animations", "default": "snappy", options: ["off", "snappy", "fluid"],
       description: "Off shows every change at once; Snappy ties changes together over a couple of frames; Fluid eases them" },
     { key: "windowTransition", type: "enum", label: "Window transition", "default": "instant", options: ["instant", "fade", "slide"],
@@ -658,6 +661,7 @@ Item {
     search.text = payload && payload.query ? String(payload.query) : ""
     root.resetSelection()
     root.applyRows([])
+    root.aimAtFocusedScreen()
     root.opened = true
     root.notifyOpened()
     root.runQuery()
@@ -700,6 +704,7 @@ Item {
     search.text = ""
     root.resetSelection()
     root.applyRows([])
+    root.aimAtFocusedScreen()
     root.opened = true
     root.runQuery()
     Qt.callLater(function() { search.forceActiveFocus() })
@@ -1243,6 +1248,7 @@ Item {
   function inspect() {
     var appEntries = root.appLibrary ? root.appLibrary.sortedEntries("") : []
     return JSON.stringify({ opened: root.opened, mode: root.mode, view: root.activeProviderKey, scope: root.scope, query: search.text, count: root.rows.length,
+      window: { fullscreenBackground: root.fullscreenBackground, width: panel.width, height: panel.height },
       command: root.activeCommand ? { key: root.activeCommand.key, prefix: root.activeCommand.prefix, rest: root.activeCommand.rest } : null, hint: root.commandHint, ghost: root.commandGhost,
       titles: root.rows.map(function(r) { return r.title }), selected: root.selected, pending: root.pending, patterns: root.lastPatterns,
       current: { uid: root.current.uid || "", icon: root.current.icon || "", iconSource: root.current.iconSource || "", badge: root.current.badge || "", tier: root.current.tier || "" },
@@ -1260,12 +1266,55 @@ Item {
   readonly property int footerHeight: Style.space(46)
   readonly property int rowHeight: Style.space(compact ? 46 : 56)
   readonly property int rowSpacing: Style.space(3)
-  readonly property int dmenuRowsHeight: {
-    // The empty state is a glyph plus a label, so one row clips it.
-    var count = resultModel.count || 2
-    var maxRows = root.dmenuMaxHeight > 0 ? Math.max(1, Math.floor(Style.space(root.dmenuMaxHeight) / (rowHeight + rowSpacing))) : 12
-    return Math.min(count, maxRows) * (rowHeight + rowSpacing)
+  readonly property int dmenuMaxRows: root.dmenuMaxHeight > 0 ? Math.max(1, Math.floor(Style.space(root.dmenuMaxHeight) / (rowHeight + rowSpacing))) : 12
+  // The empty state is a glyph plus a label, so one row clips it.
+  readonly property int dmenuRowsHeight: Math.min(resultModel.count || 2, root.dmenuMaxRows) * (rowHeight + rowSpacing)
+  // Filtering only removes options, so this is as tall as the picker gets.
+  readonly property int dmenuRowsCeiling: Math.min(Math.max(root.dmenuOptions.length, 2), root.dmenuMaxRows) * (rowHeight + rowSpacing)
+
+  readonly property bool fullscreenBackground: paletteSettings.fullscreenBackground !== false
+  // Fixed when the palette opens. An inset surface's margins come from this
+  // screen, so the compositor must not pick another output for it, and the
+  // palette must not follow focus to another monitor while it is open.
+  property var targetScreen: null
+  function screenNamed(name, screens) {
+    for (var i = 0; name && i < screens.length; i++) if (screens[i].name === name) return screens[i]
+    return null
   }
+  // Bound at load, so Hyprland's monitor list is filled before the first open.
+  readonly property string focusedMonitorName: Hyprland.focusedMonitor ? String(Hyprland.focusedMonitor.name || "") : ""
+  function aimAtFocusedScreen() {
+    if (!root.opened) root.targetScreen = root.screenNamed(root.focusedMonitorName, Quickshell.screens)
+  }
+  readonly property var paletteScreen: root.targetScreen || panel.screen || Quickshell.screens[0] || null
+  readonly property real viewportWidth: root.fullscreenBackground ? panel.width : (root.paletteScreen ? root.paletteScreen.width : 1280)
+  readonly property real viewportHeight: root.fullscreenBackground ? panel.height : (root.paletteScreen ? root.paletteScreen.height : 720)
+  readonly property int windowSlideMargin: !root.fullscreenBackground && root.windowSlides ? Style.space(Motion.WINDOW_SLIDE_PX) : 0
+  readonly property real cardWidth: Math.max(1, Math.min(root.dmenuActive ? Style.space(root.dmenuWidth) : Style.space(root.compact ? 640 : 760), root.viewportWidth - Style.gapsOut * 2))
+  function cardHeightFor(rowsHeight) {
+    return Math.max(1, Math.min(root.dmenuActive
+      ? root.headerHeight + (root.mode === "input" ? Style.space(12) : rowsHeight + Style.space(20))
+      : Style.space(root.compact ? 540 : 580), root.viewportHeight - Style.gapsOut * 2 - root.windowSlideMargin))
+  }
+  readonly property real cardHeight: root.cardHeightFor(root.dmenuRowsHeight)
+  readonly property real verticalAnchor: root.dmenuActive ? 0.5 : 0.38
+  // Where the card sits on the display, whichever surface holds it.
+  readonly property int cardTop: Math.max(Style.gapsOut, Math.round((root.viewportHeight - root.cardHeight) * root.verticalAnchor))
+  // A launcher-sized surface keeps the picker's tallest size while it is open:
+  // resizing a layer surface on each keystroke costs a compositor round trip
+  // and a new buffer, the very allocation that fails when GPU memory is short.
+  // The card moves within it exactly as it does over the full-screen scrim.
+  readonly property real frameHeight: root.cardHeightFor(root.dmenuRowsCeiling)
+  readonly property int frameTop: Math.max(Style.gapsOut, Math.round((root.viewportHeight - root.frameHeight) * root.verticalAnchor))
+  // The flag only picks the window's rectangle: the display, or the frame.
+  // All four anchors with inset margins give a genuinely small Wayland
+  // surface, not just a transparent full-screen window without the scrim.
+  readonly property int windowLeft: root.fullscreenBackground ? 0 : Math.max(0, Math.floor((root.viewportWidth - root.cardWidth) / 2))
+  readonly property int windowRight: root.fullscreenBackground ? 0 : Math.max(0, Math.ceil((root.viewportWidth - root.cardWidth) / 2))
+  readonly property int windowTop: root.fullscreenBackground ? 0 : root.frameTop
+  readonly property int windowBottom: root.fullscreenBackground ? 0 : Math.max(0, root.viewportHeight - root.frameTop - root.frameHeight - root.windowSlideMargin)
+  // Space the picker or the slide keeps in reserve lets clicks through.
+  readonly property var inputMask: root.fullscreenBackground ? null : cardRegion
 
   Connections {
     target: panel
@@ -1277,6 +1326,9 @@ Item {
     id: panel
     visible: root.opened || root.closing
     anchors { top: true; bottom: true; left: true; right: true }
+    margins { top: root.windowTop; bottom: root.windowBottom; left: root.windowLeft; right: root.windowRight }
+    screen: root.targetScreen
+    mask: root.inputMask
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "omarchy-menu"
@@ -1284,16 +1336,15 @@ Item {
     // A launch must find the keyboard free at once, however long the fade-out runs.
     WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    Rectangle { anchors.fill: parent; color: root.scrim; opacity: root.reveal; MouseArea { anchors.fill: parent; onClicked: root.cancel() } }
+    Region { id: cardRegion; item: card }
+    Rectangle { visible: root.fullscreenBackground; anchors.fill: parent; color: root.scrim; opacity: root.reveal; MouseArea { anchors.fill: parent; onClicked: root.cancel() } }
 
     BorderSurface {
       id: card
-      width: Math.min(root.dmenuActive ? Style.space(root.dmenuWidth) : Style.space(root.compact ? 640 : 760), panel.width - Style.gapsOut * 2)
-      height: root.dmenuActive
-        ? Math.min(root.headerHeight + (root.mode === "input" ? Style.space(12) : root.dmenuRowsHeight + Style.space(20)), panel.height - Style.gapsOut * 2)
-        : Math.min(Style.space(root.compact ? 540 : 580), panel.height - Style.gapsOut * 2)
+      width: root.cardWidth
+      height: root.cardHeight
       anchors.horizontalCenter: parent.horizontalCenter
-      y: (root.dmenuActive ? Math.max(Style.gapsOut, Math.round((panel.height - height) / 2)) : Math.max(Style.gapsOut, Math.round((panel.height - height) * 0.38)))
+      y: root.cardTop - root.windowTop
          + (root.windowSlides ? Math.round((1 - root.reveal) * Style.space(Motion.WINDOW_SLIDE_PX)) : 0)
       opacity: root.reveal
       radius: Style.cornerRadius

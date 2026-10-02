@@ -6,6 +6,8 @@ import shutil
 import subprocess
 import tempfile
 
+from offscreen_window import offscreen_window
+
 root = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='keystroke-palette-shortcut-') as temp:
     work = Path(temp)
@@ -21,9 +23,7 @@ with tempfile.TemporaryDirectory(prefix='keystroke-palette-shortcut-') as temp:
 ''', 1)
     qml = qml.replace('readonly property var appLibrary: applicationLibrary.library',
                       'readonly property var appLibrary: root.testAppLibrary || applicationLibrary.library')
-    qml = qml.replace('  PanelWindow {','  Window {\n    transientParent: null\n    width: 1000; height: 800')
-    qml = qml.replace('    anchors { top: true; bottom: true; left: true; right: true }\n','')
-    source.write_text('\n'.join(line for line in qml.splitlines() if 'exclusionMode:' not in line and 'WlrLayershell.' not in line))
+    source.write_text(offscreen_window(qml))
     (work/'shell.qml').write_text('''import QtQuick
 import QtTest
 import Quickshell

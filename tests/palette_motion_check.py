@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import tempfile
 
+from offscreen_window import offscreen_window
+
 root = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix='keystroke-palette-motion-') as temp:
     work = Path(temp)
@@ -17,9 +19,7 @@ with tempfile.TemporaryDirectory(prefix='keystroke-palette-motion-') as temp:
     source = project/'Keystroke.qml'
     qml = source.read_text()
     qml = qml.replace('  id: root\n', '  id: root\n  property alias testList: resultList\n  property alias testShift: levelShift\n  property alias testCard: card\n  property alias testPanel: panel\n', 1)
-    qml = qml.replace('  PanelWindow {','  Window {\n    transientParent: null\n    width: 1000; height: 800')
-    qml = qml.replace('    anchors { top: true; bottom: true; left: true; right: true }\n','')
-    source.write_text('\n'.join(line for line in qml.splitlines() if 'exclusionMode:' not in line and 'WlrLayershell.' not in line))
+    source.write_text(offscreen_window(qml))
     (work/'shell.qml').write_text('''import QtQuick
 import Quickshell
 import "project"

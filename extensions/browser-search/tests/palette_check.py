@@ -6,7 +6,11 @@ from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
+from offscreen_window import offscreen_window
 
 root = Path(__file__).resolve().parents[3]
 with tempfile.TemporaryDirectory(prefix="keystroke-browser-") as temp:
@@ -15,9 +19,8 @@ with tempfile.TemporaryDirectory(prefix="keystroke-browser-") as temp:
     shutil.copytree(root, project, ignore=shutil.ignore_patterns(".git", ".claude", ".agents", ".codex", "tests", "__pycache__", "experiments"))
     (work / "qs").symlink_to("/usr/share/omarchy/shell")
     source = project / "Keystroke.qml"
-    qml = source.read_text().replace("  PanelWindow {", "  Window {\n    transientParent: null\n    width: 1000; height: 800")
-    qml = qml.replace("    anchors { top: true; bottom: true; left: true; right: true }\n", "")
-    source.write_text("\n".join(line for line in qml.splitlines() if "exclusionMode:" not in line and "WlrLayershell." not in line))
+    qml = source.read_text()
+    source.write_text(offscreen_window(qml))
     config = work / ".config"
     (config / "omarchy").mkdir(parents=True)
     (config / "omarchy/keystroke.json").write_text(json.dumps({"version": 1, "matching": {"mode": "off"}}))

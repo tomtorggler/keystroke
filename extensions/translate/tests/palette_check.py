@@ -22,7 +22,11 @@ from pathlib import Path
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests"))
+from offscreen_window import offscreen_window
 
 root = Path(__file__).resolve().parents[3]
 
@@ -33,9 +37,7 @@ with tempfile.TemporaryDirectory(prefix="keystroke-translate-") as temp:
     (work / "qs").symlink_to("/usr/share/omarchy/shell")
     source = project / "Keystroke.qml"
     qml = source.read_text()
-    qml = qml.replace("  PanelWindow {", "  Window {\n    transientParent: null\n    width: 1000; height: 800")
-    qml = qml.replace("    anchors { top: true; bottom: true; left: true; right: true }\n", "")
-    source.write_text("\n".join(line for line in qml.splitlines() if "exclusionMode:" not in line and "WlrLayershell." not in line))
+    source.write_text(offscreen_window(qml))
 
     fake = work / "bin"
     fake.mkdir()
